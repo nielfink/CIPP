@@ -2533,7 +2533,7 @@ const ExecutiveReportDocument = ({
 };
 
 export const ExecutiveReportButton = (props) => {
-  const { tenantName, tenantId, userStats, standardsData, organizationData, ...other } = props;
+  const { ...other } = props;
   const settings = useSettings();
   const brandingSettings = settings.customBranding;
 
@@ -2548,6 +2548,22 @@ export const ExecutiveReportButton = (props) => {
     deviceManagement: true,
     conditionalAccess: true,
     infographics: true,
+  });
+
+  // Fetch organization data - only when preview is open
+  const organization = ApiGetCall({
+    url: "/api/ListOrg",
+    queryKey: `${settings.currentTenant}-ListOrg-report`,
+    data: { tenantFilter: settings.currentTenant },
+    waiting: previewOpen,
+  });
+
+  // Fetch user counts - only when preview is open
+  const dashboard = ApiGetCall({
+    url: "/api/ListuserCounts",
+    data: { tenantFilter: settings.currentTenant },
+    queryKey: `${settings.currentTenant}-ListuserCounts-report`,
+    waiting: previewOpen,
   });
 
   // Only fetch additional data when preview dialog is opened
@@ -2579,7 +2595,6 @@ export const ExecutiveReportButton = (props) => {
     data: {
       tenantFilter: settings.currentTenant,
     },
-    dataKey: "Results",
     queryKey: `ca-policies-report-${settings.currentTenant}`,
     waiting: previewOpen,
   });
@@ -2607,7 +2622,9 @@ export const ExecutiveReportButton = (props) => {
   // Check if all data is loaded (either successful or failed) - only relevant when preview is open
   const isDataLoading =
     previewOpen &&
-    (secureScore.isFetching ||
+    (organization.isFetching ||
+      dashboard.isFetching ||
+      secureScore.isFetching ||
       licenseData.isFetching ||
       deviceData.isFetching ||
       conditionalAccessData.isFetching ||
@@ -2616,7 +2633,9 @@ export const ExecutiveReportButton = (props) => {
 
   const hasAllDataFinished =
     !previewOpen ||
-    ((secureScore.isSuccess || secureScore.isError) &&
+    ((organization.isSuccess || organization.isError) &&
+      (dashboard.isSuccess || dashboard.isError) &&
+      (secureScore.isSuccess || secureScore.isError) &&
       (licenseData.isSuccess || licenseData.isError) &&
       (deviceData.isSuccess || deviceData.isError) &&
       (conditionalAccessData.isSuccess || conditionalAccessData.isError) &&
@@ -2625,6 +2644,18 @@ export const ExecutiveReportButton = (props) => {
 
   // Button is always available now since we don't need to wait for data
   const shouldShowButton = true;
+
+  const tenantName = organization.data?.displayName || "Tenant";
+  const tenantId = organization.data?.id;
+  const userStats = {
+    licensedUsers: dashboard.data?.LicUsers || 0,
+    unlicensedUsers:
+      dashboard.data?.Users && dashboard.data?.LicUsers
+        ? dashboard.data?.Users - dashboard.data?.LicUsers
+        : 0,
+    guests: dashboard.data?.Guests || 0,
+    globalAdmins: dashboard.data?.Gas || 0,
+  };
 
   const fileName = `Executive_Report_${tenantName?.replace(/[^a-zA-Z0-9]/g, "_") || "Tenant"}_${
     new Date().toISOString().split("T")[0]
@@ -2656,14 +2687,14 @@ export const ExecutiveReportButton = (props) => {
           tenantName={tenantName}
           tenantId={tenantId}
           userStats={userStats}
-          standardsData={standardsData}
-          organizationData={organizationData}
+          standardsData={driftComplianceData.data}
+          organizationData={organization.data}
           brandingSettings={brandingSettings}
           secureScoreData={secureScore.isSuccess ? secureScore : null}
           licensingData={licenseData.isSuccess ? licenseData?.data : null}
           deviceData={deviceData.isSuccess ? deviceData?.data : null}
           conditionalAccessData={
-            conditionalAccessData.isSuccess ? conditionalAccessData?.data : null
+            conditionalAccessData.isSuccess ? conditionalAccessData?.data?.Results : null
           }
           standardsCompareData={standardsCompareData.isSuccess ? standardsCompareData?.data : null}
           driftComplianceData={driftComplianceData.isSuccess ? driftComplianceData?.data : null}
@@ -2688,8 +2719,8 @@ export const ExecutiveReportButton = (props) => {
     tenantName,
     tenantId,
     userStats,
-    standardsData,
-    organizationData,
+    organization.data,
+    dashboard.data,
     brandingSettings,
     secureScore?.isSuccess,
     licenseData?.isSuccess,
@@ -3008,14 +3039,14 @@ export const ExecutiveReportButton = (props) => {
                   tenantName={tenantName}
                   tenantId={tenantId}
                   userStats={userStats}
-                  standardsData={standardsData}
-                  organizationData={organizationData}
+                  standardsData={driftComplianceData.data}
+                  organizationData={organization.data}
                   brandingSettings={brandingSettings}
                   secureScoreData={secureScore.isSuccess ? secureScore : null}
                   licensingData={licenseData.isSuccess ? licenseData?.data : null}
                   deviceData={deviceData.isSuccess ? deviceData?.data : null}
                   conditionalAccessData={
-                    conditionalAccessData.isSuccess ? conditionalAccessData?.data : null
+                    conditionalAccessData.isSuccess ? conditionalAccessData?.data?.Results : null
                   }
                   standardsCompareData={
                     standardsCompareData.isSuccess ? standardsCompareData?.data : null
